@@ -60,7 +60,7 @@ int main() {
 
 	// Consiguiendo la dirección de algún lugar del que queramos conectarnos.
 		// Se agrega como segundo parámetro la variable que manejara el error que llegue a recibir la función. 
-	asio::ip::tcp::endpoint endpoint(asio::ip::make_address("51.38.81.49", ec), 80);
+	asio::ip::tcp::endpoint endpoint(asio::ip::make_address("192.168.0.13", ec), 80);
 
 	// Se crea el socket para llevar a cabo la conexión con el endpoint, el contexto se encargara de entregar las implementaciones.
 	asio::ip::tcp::socket socket(context);

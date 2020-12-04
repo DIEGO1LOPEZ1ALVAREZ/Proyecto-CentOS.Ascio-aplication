@@ -3,7 +3,7 @@
 // Agregando todas las librerías a usar.
 #include "net_common.h"
 
-// Crearemos la librería cap (CentOS Ascio Project) que llevara la librería net para hacer las conexiones de mensajes.
+// Crearemos la librería cap (CentOS Asio Project) que llevara la librería net para hacer las conexiones de mensajes.
 namespace cap {
 	// Librería net que se encargara de las conexiones y el tipo de mensajes a procesar.
 	namespace net {
@@ -38,6 +38,7 @@ namespace cap {
 
 			// Sobrescribimos la compatibilidad del std::cout para producir una descripción amistosa del mensaje
 				// Principalmente esto se hace para poder depurar.
+
 			friend std::ostream& operator << (std::ostream& os, const message<T>& msg) {
 				os << "ID:" << int(msg.header.id) << " Tamaño:" << msg.header.size;
 				return os;
@@ -88,6 +89,33 @@ namespace cap {
 				// Retornamos el mensaje dado para que pueda ser concatenado.
 				return msg;
 			}
+
+		};
+
+		// Declaramos la conexión de forma prematura para su uso.
+		template <typename T>
+		class connection;
+
+		// Estructura que se encargara de establecer una estructura para poder dividir los
+		// mensajes pertenecientes y sea más sencillo identificarlos por creador.
+
+		template <typename T>
+		struct owned_message {
+
+			// Variable que se encargara de compartir la dirección de una conexión para ahí mandar los datos de salida.
+			std::shared_ptr<connection<T>> remote = nullptr;
+
+			// Variable de manejo de los mensajes.
+			message<T>  msg;
+
+			// Sobrescribimos la compatibilidad del std::cout para producir una descripción amistosa del mensaje
+				// Principalmente esto se hace para poder depurar.
+
+			friend std::ostream& operator << (std::ostream& os, const owned_message<T>& msg) {
+				os << msg.msg;
+				return os;
+			}
+
 
 		};
 
