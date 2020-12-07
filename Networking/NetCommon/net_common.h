@@ -7,11 +7,14 @@
 #include <deque>
 #include <optional>
 #include <vector>
+#include <iostream>
 #include <algorithm>
 #include <chrono>
 #include <cstdint>
-#include <iostream>
 #include <stdio.h>
+#include <inttypes.h>
+#include <string>
+#include <functional>
 
 //* Agregando y definiendo librerías y parámetros para usar la librería asio. *//
 #define ASIO_STANDALONE

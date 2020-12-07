@@ -16,7 +16,7 @@ namespace cap {
 		struct message_header {
 			// Id Del mensaje con formato a especificar con tamaño sin asignar de 32 bits.
 			T id{};
-			uint32_t size = 0
+			uint32_t size = 0;
 		};
 
 		// Es la estructura del mensaje del cuerpo, que ya posee el encabezado del mensaje.
@@ -31,9 +31,7 @@ namespace cap {
 			// Cada que queremos leer o escribir un mensaje, el socket debe de recibir el tamaño que se desea, por ende
 			// es necesario crear este método que se encargara de retornar el tamaño completo del paquete del mensaje, en bytes.
 			size_t size() const {
-				// Solo tenemos que conseguir el tamaño del encabezado del mensaje y sumarle el tamaño del cuerpo, el cual es más sencillo
-				// debido a que es un arreglo dinámico.
-				return sizeof(message_header<T>) + body.size();
+				return body.size();
 			}
 
 			// Sobrescribimos la compatibilidad del std::cout para producir una descripción amistosa del mensaje

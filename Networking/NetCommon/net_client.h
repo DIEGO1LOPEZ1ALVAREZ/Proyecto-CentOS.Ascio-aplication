@@ -13,16 +13,6 @@ namespace cap {
 
 		template <typename T>
 		class client_interface {
-
-			client_interface() : m_socket(m_context) {
-				// Se inicializa el socket con el contexto, para que así pueda hacer cosas.
-			}
-
-			virtual ~client_interface() {
-				// Si el cliente es destruido, se desconectarse del server.
-				this->Disconnect();
-			}
-
 		private:
 
 			// Este es el proceso seguro de la cola de subprocesos con mensajes entrantes del servidor.
@@ -36,25 +26,32 @@ namespace cap {
 			asio::io_context m_context;
 			std::thread thrContext;
 
-			// Este es el socket físico que esta conectado al servidor.
-			asio::ip::tcp::socket m_socket;
-
 			// El cliente tiene una única instancia de un objeto de "connection", el cual maneja la transferencia de datos.
 			std::unique_ptr<connection<T>> m_connection;
 
 		public:
+			client_interface() {
+			}
+
+			virtual ~client_interface() {
+				// Si el cliente es destruido, se desconectarse del server.
+				this->Disconnect();
+			}
 
 			// Conecta al servidor con hostname o ip y con su puerto, retornara si la conexión fue posible.
 			bool Connect(const std::string& host, const uint16_t port) {
 				try {
-					// Creando la conexión
-					this->m_connection = std::make_unique<connection<T>>(); // TODO
 
 					// Resuelve el hostname/ip en una dirección física tangible.
 					asio::ip::tcp::resolver resolver(this->m_context);
-					
-					// Consigue el host y lo guarda en el punto final de la conexión.
-					m_endpoints = resolver.resolve(host, std::to_string(port));
+
+					// Creamos los puntos finales de la conexión y consigue el host y lo guarda en el punto final de la conexión.
+					asio::ip::tcp::resolver::results_type m_endpoints = resolver.resolve(host, std::to_string(port));
+
+					// Creando la conexión
+						// Tenemos que especificarle que somos, el contexto que usamos y un socket con nuestro contexto.
+						// Y también la cola de nuestros mensajes entrantes.
+					this->m_connection = std::make_unique<connection<T>>(connection<T>::owner::client, this->m_context, asio::ip::tcp::socket(this->m_context), this->m_qMessagesIn); // TODO
 
 					// Le indica a la conexión que se conecte al server.
 					this->m_connection->ConnectToServer(m_endpoints);
@@ -75,7 +72,7 @@ namespace cap {
 			// Desconecta del servidor.
 			void Disconnect() {
 				// Si la conexión existe, y esta conectada nos desconectamos.
-				if (IsConnected()) {
+				if (this->IsConnected()) {
 					this->m_connection->Disconnect();
 				}
 
@@ -99,6 +96,14 @@ namespace cap {
 				}
 			}
 			
+			// Manda un mensaje al servidor.
+			void Send(const message<T>& msg) {
+				// Verificamos que este conectado el cliente.
+				if (this->IsConnected()) {
+					this->m_connection->Send(msg);
+				}
+			}
+
 			// Recupera la cola de mensajes del server.
 			tsqueue<owned_message<T>>& Incoming() {
 				return this->m_qMessagesIn;
