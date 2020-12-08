@@ -7,6 +7,10 @@
 namespace cap {
 	namespace net {
 
+		// Declaración primitiva.
+		template<typename T>
+		class server_interface;
+
 		// Clase que nos permitirá crear un pointer compartido dentro del todo el objeto.
 		// Esto actuara como la conexión.
 		template <typename T>
@@ -52,7 +56,7 @@ namespace cap {
 
 			// Método sincrónico, comprime el contexto listo para poder escribir el encabezado de un mensaje.
 			void WriteHeader() {
-				// Le indicamos  a asio que escriba de forma sincrónica.
+				// Le indicamos a asio que escriba de forma sincrónica.
 					// Dándole el socket de conexión, un buffer donde se guardaran los mensajes salientes, y el tamaño.
 					// Y como en cada método donde hay algo sincrónico, creamos una función lambda para que ejecute directamente.
 						// Donde pedirá un manejador de errores y el tamaño del cuerpo.
@@ -109,7 +113,7 @@ namespace cap {
 
 			// Método sincrónico, comprime el contexto listo para poder escribir el cuerpo de un mensaje.
 			void WriteBody() {
-				// Le indicamos  a asio que escriba de forma sincrónica.
+				// Le indicamos a asio que escriba de forma sincrónica.
 					// Dándole el socket de conexión, un buffer donde se guardaran los mensajes salientes del cuerpo, y el tamaño.
 					// Y como en cada método donde hay algo sincrónico, creamos una función lambda para que ejecute directamente.
 						// Donde pedirá un manejador de errores y el tamaño del cuerpo.
@@ -150,6 +154,77 @@ namespace cap {
 				ReadHeader();
 			}
 
+			// Función de encriptar datos.
+			uint64_t scramble(uint64_t nInput) {
+				uint64_t out = nInput ^ 0xDEADBEEFC0DECAFE;
+				out = (out & 0xF0F0F0F0F0F0F0) >> 4 | (out & 0x0F0F0F0F0F0F0F) << 4;
+				return out ^ 0xC0DEFACE12345678;
+			}
+
+			// Método sincrónico, función utilizada por ambos, cliente y servidor para escribir datos de validación.
+			void WriteValidation() {
+				// Le indicamos a asio que escriba de forma sincrónica.
+					// Esto sera utilizado para que en el socket dado, el buffer de asio pueda escribir una validación.
+				asio::async_write(this->m_socket, asio::buffer(&this->m_nADVOut, sizeof(uint64_t)), [this](std::error_code ec, std::size_t length) {
+						// Verificamos que no haya errores.
+						if (!ec) {
+							// Si no hay errores, la valadición fue enviada y los clientes lo unico que deben
+							// de hacer es sentarse a esperar.
+							if (m_nOwnerType == owner::client) {
+								ReadHeader();
+							}
+						}
+						else {
+							// Si hubo errores, cerramos para evitar flujos.
+							m_socket.close();
+						}
+					});
+			}
+
+			// Método sincrónico, función que nos servirá para leer validaciones.
+				// Se agrega un parámetro el cual es la dirección del servidor al que esta procesando todo esto.
+			void ReadValidation(cap::net::server_interface<T>* server = nullptr) {
+				// Le indicamos a asio que lea de forma sincrónica.
+					// Esta función leera lo que se haya agregado de validación y lo fijara y validara con la dirección dada.
+				asio::async_read(this->m_socket, asio::buffer(&this->m_nADVIn, sizeof(uint64_t)), [this, server](std::error_code ec, std::size_t length) {
+						// Verificamos que no haya errores.
+						if (!ec) {
+							// Verificamos quien es el que ejecuta esta función.
+							if (m_nOwnerType == owner::server) {
+								// Si la conexión es la de un servidor, nos encargaremos de verificar que la validación sea correcta.
+								if (m_nADVIn == m_nADVCheck) {
+									// Si el cliente valido bien, le permitiremos al cliente conectarse,
+									// pero antes ejecutaremos el evento cuando un cliente es verificado.
+									// También notificamos de paso.
+									printf("Cliente validado\n");
+									server->OnClientValidated(this->shared_from_this());
+
+									// Y como dicho previamente, el cliente fue valido ahora podremos sentarnos a escucharlo.
+									ReadHeader();
+								}
+								else {
+									// Si el cliente no valio bien, lo desconectamos y lo agregamos a la lista negra >:(
+									printf("Cliente desconectado (Falló la validación)\n");
+									// Y obviamente cerramos para evitar flujos.
+									m_socket.close();
+								}
+							}
+							else {
+								// Si la conexión es de un cliente, lo unico que debe de ser es resolver la verificación.
+								m_nADVOut = scramble(m_nADVIn);
+
+								// Y escribimos el resultado.
+								WriteValidation();
+							}
+						}
+						else {
+							// Si hay un error significa que hubo un problema mayor que la validación.
+							printf("Cliente desconectado (Lectura de Validación)\n");
+							m_socket.close();
+						}
+					});
+			}
+
 		public:
 
 			// Crearemos una numeración de tipo de autor de conexión.
@@ -164,6 +239,23 @@ namespace cap {
 				: m_asioContext(asioContext), m_socket(std::move(socket)), m_qMessagesIn(qIn) {
 				// Le establecemos quien es el nuevo autor de la conexión.
 				this->m_nOwnerType = parent;
+
+				// Construcción de la validación.
+				if (this->m_nOwnerType == owner::server) {
+
+					// Le daremos un numero al azar a la validación saliente para el cliente, para que el lo resulva,
+					// y sea aceptado.
+					this->m_nADVOut = (uint64_t(std::chrono::system_clock::now().time_since_epoch().count()) * uint64_t(rand() % 150)) % sizeof(uint64_t);
+
+					// Pre calculando el resultando para revisar cuando el cliente responda.
+					this->m_nADVCheck = this->scramble(this->m_nADVOut);
+				}
+				else {
+					// Si no es servidor, pues lo asignamos el valor default ya que el cliente
+					// solo debe de mandar su validación a la hora de conectarse.
+					this->m_nADVIn = 0;
+					this->m_nADVOut = 0;
+				}
 			}
 
 			virtual ~connection() {}
@@ -174,7 +266,8 @@ namespace cap {
 			}
 
 			// Método que asigna la ID al cliente siempre y cuando la conexión sea del servidor y también le permita recivir y mandar información.
-			void ConnectToClient(uint32_t uid = 0) {
+			// También pide saber que servidor ejecuta esto para poder validar al cliente.
+			void ConnectToClient(cap::net::server_interface<T>* server, uint32_t uid = 0) {
 				// Verificamos que el que ejecuta esto, es el servidor, si lo es permitirá asignar la ID.
 				if (this->m_nOwnerType == owner::server) {
 					// Revisamos si al socket esta encendido.
@@ -182,8 +275,11 @@ namespace cap {
 						// Y asignamos la ID.
 						this->id = uid;
 
-						// Ahora le indicamos al servidor que este a la espera de lectura de mensajes.
-						this->ReadHeader();
+						// Escribimos la validación para que el cliente pueda validarse así y demostrar que es parte del sistema.
+						this->WriteValidation();
+
+						// Y ahora esperamos sincrónicamente a que el cliente mande su validación para leerla.
+						this->ReadValidation(server);
 					}
 				}
 			}
@@ -199,8 +295,8 @@ namespace cap {
 					asio::async_connect(this->m_socket, endpoints, [this](std::error_code ec, asio::ip::tcp::endpoint endpoint) {
 							// Verificamos que no haya errores.
 							if (!ec) {
-								// Si no hay errores, indicamos que empiece a leer mensajes.
-								ReadHeader();
+								// Si no hay errores, indicamos que vaya a leer la validación.
+								ReadValidation();
 							}
 						});
 				}
@@ -265,6 +361,11 @@ namespace cap {
 
 			// Variable que guardara la ID de la conexión.
 			uint32_t id = 0;
+
+			// Valores para validación.
+			uint64_t m_nADVOut = 0;
+			uint64_t m_nADVIn = 0;
+			uint64_t m_nADVCheck = 0;
 
 		};
 

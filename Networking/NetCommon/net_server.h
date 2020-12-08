@@ -60,6 +60,11 @@ namespace cap {
 				Stop();
 			}
 
+			// Evento cuando un cliente ha sido validado.
+			virtual void OnClientValidated(std::shared_ptr<connection<T>> client) {
+
+			}
+
 			// Inicializa el server.
 			bool Start() {
 				// Intentaremos hacer los procesos para la conexión, si hay falla imprimirá la excepción y retornara falso.
@@ -116,8 +121,8 @@ namespace cap {
 								// en caso de que esta cambie de posición.
 								m_deqConnections.push_back(std::move(newConn));
 
-								// Ya agregado, es momento de asignarle un ID con el método siguiente.
-								m_deqConnections.back()->ConnectToClient(nIDCounter++);
+								// Ya agregado, es momento de asignarle un ID con el método siguiente, he indicarle que este servidor quiere validarlo.
+								m_deqConnections.back()->ConnectToClient(this, nIDCounter++);
 
 								// Y ahora indicamos que el cliente se conecto con la ID asignada.
 								std::cout << "[" << m_deqConnections.back()->GetID() << "] Conexión aprobada.\n";

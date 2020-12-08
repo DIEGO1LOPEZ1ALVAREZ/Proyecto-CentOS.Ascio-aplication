@@ -59,7 +59,7 @@ public:
 		cap::net::message<CustomMsgTypes> msg;
 
 		// Le ponemos de Id al mensaje la instrucción de mensaje a todos.
-		msg.header.id = CustomMsgTypes::ServerMessage;
+		msg.header.id = CustomMsgTypes::MessageAll;
 
 		// Lo mandamos.
 		Send(msg);
@@ -135,7 +135,7 @@ int main() {
 					break;
 
 					// Caso en el que el mensaje sea de tipo todos.
-					case CustomMsgTypes::ServerMessage: {
+					case CustomMsgTypes::MessageAll: {
 						// Creamos la variable de la ID del cliente.
 						uint32_t clientID;
 						msg >> clientID;

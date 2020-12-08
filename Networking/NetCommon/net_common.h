@@ -15,6 +15,7 @@
 #include <inttypes.h>
 #include <string>
 #include <functional>
+#include <random>
 
 //* Agregando y definiendo librerías y parámetros para usar la librería asio. *//
 #define ASIO_STANDALONE

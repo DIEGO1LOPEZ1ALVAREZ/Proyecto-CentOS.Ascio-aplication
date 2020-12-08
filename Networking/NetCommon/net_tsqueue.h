@@ -42,7 +42,7 @@ namespace cap {
 				// Bloqueamos en caso de que haya subprocesos o procesos para evitar errores de supercarga.
 				std::unique_lock<std::mutex> ul(muxBlocking);
 
-				// Notificamos a la variable que se encarga de bloquear que lo haga.
+				// Notificamos a la variable que se encarga de bloquear que lo haga para salir del modo de espera.
 				this->cvBlocking.notify_one();
 			}
 
@@ -57,7 +57,7 @@ namespace cap {
 				// Bloqueamos en caso de que haya subprocesos o procesos para evitar errores de supercarga.
 				std::unique_lock<std::mutex> ul(muxBlocking);
 
-				// Notificamos a la variable que se encarga de bloquear que lo haga.
+				// Notificamos a la variable que se encarga de bloquear que lo haga para salir del modo de espera.
 				this->cvBlocking.notify_one();
 			}
 
@@ -114,8 +114,12 @@ namespace cap {
 
 			// Hace que los procesos sean protegidos hasta que deje de estar vacio la cola de subprocesos.
 			void wait() {
+				// Mientras la cola de subprocesos este vacía, el server descansara hasta que tenga nuevos procesos.
 				while (this->empty()) {
+					// Bloqueamos para evitar problemas.
 					std::unique_lock<std::mutex> ul(muxBlocking);
+
+					// Y indicamos a la variable que se quede a la espera.
 					this->cvBlocking.wait(ul);
 				}
 			}

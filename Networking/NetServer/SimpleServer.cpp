@@ -55,13 +55,13 @@ protected:
 			break;
 
 			// Caso en el que un cliente pidio mandar un mensaje a todos.
-			case CustomMsgTypes::ServerMessage: {
+			case CustomMsgTypes::MessageAll: {
 				// Notificamos que el servidor recibio la petición.
 				printf("[%u]: Mando un mensaje a todos.\n", client->GetID());
 
 				// Creamos el mensaje con su ID de respuesta para ejecutar la acción pedida.
 				cap::net::message<CustomMsgTypes> msg;
-				msg.header.id = CustomMsgTypes::ServerMessage;
+				msg.header.id = CustomMsgTypes::MessageAll;
 
 				// Le agregamos el mensaje a ser transmitido.
 				msg << client->GetID();
@@ -77,6 +77,9 @@ public:
 	// Constructor del server que pide como parametro el puerto.
 	CustomServer(uint16_t nPort) : cap::net::server_interface<CustomMsgTypes>(nPort) {}
 
+
+	virtual void OnClientValidated(std::shared_ptr<cap::net::connection<CustomMsgTypes>> client) {
+	}
 };
 
 int main() {
@@ -87,7 +90,7 @@ int main() {
 
 	// Creamos un while donde se estara ejecutando el Update()
 	while (1) {
-		server.Update();
+		server.Update(-1, true);
 	}
 
 	return 0;
