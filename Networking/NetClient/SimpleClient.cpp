@@ -5,7 +5,7 @@
 *********************************************************************/
 
 #include <iostream>
-#include <cap_net.h> // Agregamos la librería estática NetCommon con sus headers.
+#include "../NetCommon/cap_net.h"
 
 // Esta es una clase enumerada que se encargara de ser el tipo de mensajes que procesara la librería estática CapNet
 enum class CustomMsgTypes : uint32_t {

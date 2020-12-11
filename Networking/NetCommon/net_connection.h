@@ -245,7 +245,7 @@ namespace cap {
 
 					// Le daremos un numero al azar a la validación saliente para el cliente, para que el lo resulva,
 					// y sea aceptado.
-					this->m_nADVOut = (uint64_t(std::chrono::system_clock::now().time_since_epoch().count()) * uint64_t(rand() % 150)) % sizeof(uint64_t);
+					this->m_nADVOut = (uint64_t(std::chrono::system_clock::now().time_since_epoch().count()) + uint64_t(rand() % sizeof(uint64_t))) % sizeof(uint64_t);
 
 					// Pre calculando el resultando para revisar cuando el cliente responda.
 					this->m_nADVCheck = this->scramble(this->m_nADVOut);
